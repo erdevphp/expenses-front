@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const REFRESH_URL = import.meta.env.VITE_REFRESH_URL
+const REFRESH_URL = '/auth/token/refresh/'
 
 const axiosApi = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
