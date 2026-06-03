@@ -3,7 +3,7 @@ import axios from 'axios'
 const REFRESH_URL = import.meta.env.VITE_REFRESH_URL
 
 const axiosApi = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
