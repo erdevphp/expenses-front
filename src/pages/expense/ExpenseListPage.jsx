@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import {useEffect, useMemo, useState} from "react";
 import {
   createExpense,
   deleteExpense,
   getExpenses,
 } from "../../api/expenseApi";
 
-import { Search, Plus, X } from "lucide-react";
+import {Search, Plus, X} from "lucide-react";
 
 const CATEGORIES = [
   "Alimentation",
@@ -29,10 +29,12 @@ export default function ExpenseListPage() {
   const [filter, setFilter] = useState("Toutes");
   const [sort, setSort] = useState("recent");
 
+  const [selectedDate, setSelectedDate] = useState(null);
+
   const [openModal, setOpenModal] = useState(false);
 
   const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState(""); // formatted string
+  const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Alimentation");
 
   const [submitting, setSubmitting] = useState(false);
@@ -55,7 +57,7 @@ export default function ExpenseListPage() {
   }, []);
 
   /* =========================
-     FORMAT NUMBER INPUT
+     FORMATTING NUMBER INPUT
   ========================== */
   const formatNumber = (value) => {
     if (!value) return "";
@@ -69,16 +71,89 @@ export default function ExpenseListPage() {
   };
 
   /* =========================
-     VALIDATION
+     FILTER + SEARCH + SORT
+  ========================== */
+  const filtered = useMemo(() => {
+    let data = [...expenses];
+
+    // search
+    if (search) {
+      data = data.filter(
+        (e) =>
+          e.title.toLowerCase().includes(search.toLowerCase()) ||
+          e.category.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    // category filter
+    if (filter !== "Toutes") {
+      data = data.filter((e) => e.category === filter);
+    }
+
+    // calendar filter
+    if (selectedDate) {
+      data = data.filter((e) => e.expense_date === selectedDate);
+    }
+
+    // sort
+    switch (sort) {
+      case "amount_asc":
+        data.sort((a, b) => a.amount - b.amount);
+        break;
+      case "amount_desc":
+        data.sort((a, b) => b.amount - a.amount);
+        break;
+      case "oldest":
+        data.sort(
+          (a, b) => new Date(a.expense_date) - new Date(b.expense_date)
+        );
+        break;
+      default:
+        data.sort(
+          (a, b) => new Date(b.expense_date) - new Date(a.expense_date)
+        );
+    }
+
+    return data;
+  }, [expenses, search, filter, sort, selectedDate]);
+
+  /* =========================
+     GROUP BY DATE (TIMELINE)
+  ========================== */
+  const groupedExpenses = useMemo(() => {
+    const groups = {};
+
+    filtered.forEach((expense) => {
+      const date = expense.expense_date;
+
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+
+      groups[date].push(expense);
+    });
+
+    return groups;
+  }, [filtered]);
+
+  /* =========================
+     TOTAL
+  ========================== */
+  const total = useMemo(
+    () => filtered.reduce((sum, e) => sum + Number(e.amount), 0),
+    [filtered]
+  );
+
+  const format = (n) => Number(n).toLocaleString();
+
+  /* =========================
+     CREATE
   ========================== */
   const isFormValid =
     title.trim().length > 0 &&
     parseNumber(amount) > 0 &&
     category;
 
-  /* =========================
-     CREATE
-  ========================== */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -99,6 +174,9 @@ export default function ExpenseListPage() {
       setOpenModal(false);
 
       await loadExpenses();
+    } catch (error) {
+      console.log("STATUS:", error.response?.status);
+      console.log("DATA:", error.response?.data);
     } finally {
       setSubmitting(false);
     }
@@ -108,52 +186,11 @@ export default function ExpenseListPage() {
      DELETE
   ========================== */
   const handleDelete = async (id) => {
-    if(!confirm('Voulez vous vraiment supprimer?')) return
+    if (!confirm("Supprimer cette dépense ?")) return;
+
     await deleteExpense(id);
     setExpenses((prev) => prev.filter((e) => e.id !== id));
   };
-
-  /* =========================
-     FILTER + SORT
-  ========================== */
-  const filtered = useMemo(() => {
-    let data = [...expenses];
-
-    if (search) {
-      data = data.filter(
-        (e) =>
-          e.title.toLowerCase().includes(search.toLowerCase()) ||
-          e.category.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    if (filter !== "Toutes") {
-      data = data.filter((e) => e.category === filter);
-    }
-
-    switch (sort) {
-      case "amount_asc":
-        data.sort((a, b) => a.amount - b.amount);
-        break;
-      case "amount_desc":
-        data.sort((a, b) => b.amount - a.amount);
-        break;
-      case "oldest":
-        data.sort((a, b) => new Date(a.expense_date) - new Date(b.expense_date));
-        break;
-      default:
-        data.sort((a, b) => new Date(b.expense_date) - new Date(a.expense_date));
-    }
-
-    return data;
-  }, [expenses, search, filter, sort]);
-
-  const total = useMemo(
-    () => filtered.reduce((sum, e) => sum + Number(e.amount), 0),
-    [filtered]
-  );
-
-  const format = (n) => Number(n).toLocaleString();
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -168,16 +205,40 @@ export default function ExpenseListPage() {
           onClick={() => setOpenModal(true)}
           className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-xl hover:bg-blue-700"
         >
-          <Plus size={18} />
+          <Plus size={18}/>
           <span className="hidden sm:block">Ajouter</span>
         </button>
       </div>
 
+      {/* MINI CALENDAR */}
+      <div className="bg-white rounded-2xl shadow-sm p-4 mb-6">
+        <h2 className="font-bold mb-3">Calendrier</h2>
+
+        <div className="grid grid-cols-7 gap-2">
+          {[...new Set(expenses.map((e) => e.expense_date))].map((date) => (
+            <button
+              key={date}
+              onClick={() =>
+                setSelectedDate(
+                  selectedDate === date ? null : date
+                )
+              }
+              className={`p-2 rounded-lg text-sm ${
+                selectedDate === date
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-100"
+              }`}
+            >
+              {new Date(date).getDate()}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* SEARCH */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-
         <div className="flex items-center flex-1 px-3 py-2 bg-slate-100 rounded-xl">
-          <Search size={16} />
+          <Search size={16}/>
           <input
             className="ml-2 w-full bg-transparent outline-none"
             placeholder="Rechercher..."
@@ -207,12 +268,10 @@ export default function ExpenseListPage() {
           <option value="amount_desc">Montant ↓</option>
           <option value="amount_asc">Montant ↑</option>
         </select>
-
       </div>
 
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-
         <div className="bg-blue-600 text-white p-4 rounded-2xl">
           <p>Total</p>
           <h2 className="text-2xl font-bold">
@@ -231,60 +290,72 @@ export default function ExpenseListPage() {
             {new Set(expenses.map((e) => e.category)).size}
           </h2>
         </div>
-
       </div>
 
-      {/* LIST */}
-      <div className="space-y-3">
+      {/* TIMELINE */}
+      {Object.entries(groupedExpenses).map(([date, items]) => (
+        <div key={date} className="mb-8">
 
-        {filtered.length === 0 ? (
-          <div className="text-center py-10 text-slate-400">
-            Aucune dépense trouvée
+          <div className="mb-3 bg-slate-100 p-3 rounded-xl">
+            <h3 className="font-bold">
+              {new Date(date).toLocaleDateString("fr-FR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
+            </h3>
+
+            <p className="text-sm text-slate-500">
+              Total :
+              {" "}
+              {items.reduce((s, e) => s + Number(e.amount), 0).toLocaleString()} Ar
+            </p>
           </div>
-        ) : (
-          filtered.map((expense) => (
-            <div
-              key={expense.id}
-              className="bg-white p-4 rounded-2xl shadow-sm flex justify-between"
-            >
-              <div>
-                <h3 className="font-semibold">
-                  {expense.title}
-                </h3>
-                <p className="text-sm text-slate-500">
-                  {expense.category}
-                </p>
+
+          <div className="space-y-3">
+            {items.map((expense) => (
+              <div
+                key={expense.id}
+                className="bg-white p-4 rounded-2xl shadow-sm flex justify-between"
+              >
+                <div>
+                  <h3 className="font-semibold">
+                    {expense.title}
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    {expense.category}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className="font-bold">
+                    {format(expense.amount)} Ar
+                  </p>
+
+                  <button
+                    onClick={() => handleDelete(expense.id)}
+                    className="text-red-500 text-sm"
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </div>
+            ))}
+          </div>
 
-              <div className="text-right">
-                <p className="font-bold">
-                  {format(expense.amount)} Ar
-                </p>
-
-                <button
-                  onClick={() => handleDelete(expense.id)}
-                  className="text-red-500 text-sm"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-
-      </div>
+        </div>
+      ))}
 
       {/* MODAL */}
       {openModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
-
           <div className="bg-white w-full max-w-md rounded-2xl p-5 relative">
 
             <button
               onClick={() => setOpenModal(false)}
               className="absolute top-3 right-3"
             >
-              <X size={18} />
+              <X size={18}/>
             </button>
 
             <h2 className="text-xl font-bold mb-4">
@@ -300,13 +371,14 @@ export default function ExpenseListPage() {
                 onChange={(e) => setTitle(e.target.value)}
               />
 
-              {/* AMOUNT INPUT FORMATTED */}
               <input
                 className="w-full px-4 py-3 rounded-xl bg-slate-100"
                 placeholder="Montant"
                 value={amount}
                 onChange={(e) =>
-                  setAmount(formatNumber(e.target.value))
+                  setAmount(
+                    (v) => formatNumber(e.target.value)
+                  )
                 }
               />
 
@@ -322,14 +394,11 @@ export default function ExpenseListPage() {
 
               <button
                 disabled={!isFormValid || submitting}
-                className={`
-                  w-full py-3 rounded-xl font-semibold
-                  ${
-                    isFormValid
-                      ? "bg-blue-600 text-white hover:bg-blue-700"
-                      : "bg-slate-300 text-slate-500 cursor-not-allowed"
-                  }
-                `}
+                className={`w-full py-3 rounded-xl ${
+                  isFormValid
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-300 text-slate-500"
+                }`}
               >
                 {submitting ? "Ajout..." : "Ajouter"}
               </button>
@@ -337,7 +406,6 @@ export default function ExpenseListPage() {
             </form>
 
           </div>
-
         </div>
       )}
 

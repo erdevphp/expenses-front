@@ -6,7 +6,7 @@ import {
   FaUser,
   FaBars,
   FaTimes,
-  FaSignOutAlt,
+  FaSignOutAlt, FaCalendar,
 } from "react-icons/fa";
 import { MdMap } from "react-icons/md";
 
@@ -15,6 +15,7 @@ const MainLayout = ({ user, onLogout }) => {
 
   const navItems = [
     { path: "/", icon: <FaTachometerAlt />, label: "Dashboard" },
+    { path: "/calendar", icon: <FaCalendar />, label: "Calendrier" },
     { path: "/message", icon: <FaEnvelope />, label: "Messages" },
     { path: "/map", icon: <MdMap />, label: "Carte" },
     { path: "/profile", icon: <FaUser />, label: "Profile" },

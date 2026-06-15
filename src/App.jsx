@@ -10,6 +10,7 @@ import NotFoundPage from "./pages/NotFoundPage.jsx";
 import Map from "./components/Map.jsx";
 import ExpenseListPage from "./pages/expense/ExpenseListPage.jsx";
 import ProfilePage from "./pages/user/ProfilePage.jsx";
+import ExpenseCalendar from "./components/Expense/ExpenseCalendar.jsx";
 
 
 // Composant de route protégée
@@ -80,6 +81,7 @@ function App() {
         }
       >
         <Route path="/" element={<ExpenseListPage user={user}/>}/>
+        <Route path="/calendar" element={<ExpenseCalendar />} />
         <Route path="/message" element={<MessageListPage user={user}/>}/>
         <Route path="/map" element={<Map user={user}/>}/>
         <Route path="/profile" element={<ProfilePage user={user}/>}/>

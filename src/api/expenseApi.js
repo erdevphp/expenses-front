@@ -11,3 +11,6 @@ export const deleteExpense = (id) =>
 
 export const updateExpense = (id, payload) =>
   axiosApi.put(`/expenses/${id}/`, payload);
+
+export const getExpenseCalendar = () =>
+  axiosApi.get("/expenses/calendar/");
